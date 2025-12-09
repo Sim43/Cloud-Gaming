@@ -1,4 +1,4 @@
 vgamepad
 mss
-pillow 
+pillow
 flask 

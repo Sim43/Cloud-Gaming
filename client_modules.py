@@ -1,9 +1,16 @@
 """Client module for sending commands to server."""
 import socket
 import sys
-import termios
-import tty
 import threading
+import platform
+
+# Platform-specific imports
+if platform.system() != 'Windows':
+    import termios
+    import tty
+else:
+    termios = None
+    tty = None
 
 
 class CommandClient:
@@ -38,18 +45,25 @@ class CommandClient:
                 self._update_status(f"Error sending char: {e}")
     
     def _run_terminal_mode(self):
-        """Run client in terminal mode (original behavior)."""
+        """Run client in terminal mode (original behavior - Unix only)."""
+        if platform.system() == 'Windows':
+            self._update_status("Terminal mode is not supported on Windows. Please use GUI mode.")
+            self.running = False
+            return
+        
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.server_ip, self.PORT))
             self._update_status(f"Connected to {self.server_ip}:{self.PORT}")
             self._update_status("Press keys (Ctrl+C to exit)")
             
-            # Save terminal settings
-            self.old_settings = termios.tcgetattr(sys.stdin)
-            
-            # Set terminal to raw mode
-            tty.setraw(sys.stdin.fileno())
+            # Save terminal settings (Unix only)
+            if termios:
+                self.old_settings = termios.tcgetattr(sys.stdin)
+                
+                # Set terminal to raw mode
+                if tty:
+                    tty.setraw(sys.stdin.fileno())
             
             while self.running:
                 char = sys.stdin.read(1)
@@ -81,8 +95,8 @@ class CommandClient:
             self.running = False
     
     def _cleanup_terminal(self):
-        """Restore terminal settings."""
-        if self.old_settings:
+        """Restore terminal settings (Unix only)."""
+        if self.old_settings and termios:
             try:
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.old_settings)
             except:
